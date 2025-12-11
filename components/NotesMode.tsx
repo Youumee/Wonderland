@@ -1,0 +1,183 @@
+import React, { useState } from 'react';
+import { Note } from '../types';
+
+interface NotesModeProps {
+  notes: Note[];
+  onDelete: (id: string) => void;
+}
+
+const NotesMode: React.FC<NotesModeProps> = ({ notes, onDelete }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handleCardClick = (index: number, id: string) => {
+    if (index === activeIndex) {
+        setExpandedId(expandedId === id ? null : id);
+    } else {
+        setActiveIndex(index);
+        setExpandedId(null);
+    }
+  };
+
+  const getCardStyle = (index: number) => {
+    const offset = index - activeIndex;
+    const isActive = offset === 0;
+    
+    // 3D Transform Logic
+    const spacing = 40; 
+    const translateY = offset * spacing; 
+    const scale = isActive ? 1 : 0.9;
+    const opacity = isActive ? 1 : 0.5;
+    const zIndex = notes.length - Math.abs(offset);
+    
+    // Vertical Stack Deck Style
+    return {
+        transform: `translate(-50%, -50%) translateY(${translateY}px) scale(${scale})`,
+        zIndex,
+        opacity,
+        filter: `blur(${isActive ? 0 : 2}px)`,
+    };
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    // Prevent the card from collapsing (parent onClick)
+    e.stopPropagation();
+    
+    // Removed window.confirm as it can be blocked in some environments, causing "no reaction"
+    // Direct delete for smoother UX
+    onDelete(id);
+    
+    if (expandedId === id) setExpandedId(null);
+    
+    // Adjust active index if we deleted the last item
+    if (activeIndex >= notes.length - 1 && activeIndex > 0) {
+        setActiveIndex(activeIndex - 1);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full relative z-10 w-full overflow-hidden">
+      <div className="mt-8 mb-4 text-center z-20">
+        <h2 className="text-3xl font-serif italic text-[#4A3B32] magic-text">Collected Memories</h2>
+        <p className="text-[#4A3B32]/50 text-xs mt-1 tracking-widest uppercase">{notes.length} Fragments Preserved</p>
+      </div>
+
+      {notes.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-[#4A3B32]/30">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={0.5} stroke="currentColor" className="w-24 h-24 mb-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+          </svg>
+          <span className="font-serif italic text-xl">The pages are blank...</span>
+        </div>
+      ) : (
+        <div className="flex-1 relative w-full flex items-center justify-center perspective-[1000px]">
+            <div className="relative w-full max-w-lg h-[600px] flex items-center justify-center">
+                {notes.map((note, index) => {
+                    // Only render visible range for performance
+                    if (Math.abs(index - activeIndex) > 3) return null;
+
+                    const isActive = index === activeIndex;
+                    const isExpanded = expandedId === note.id;
+
+                    return (
+                        <div
+                            key={note.id}
+                            onClick={() => handleCardClick(index, note.id)}
+                            className={`
+                                absolute top-1/2 left-1/2 w-[320px] md:w-[400px] 
+                                mist-panel rounded-[20px] p-8 shadow-2xl border border-white/60
+                                transition-all duration-500 ease-out cursor-pointer
+                                flex flex-col overflow-hidden
+                                ${isExpanded 
+                                    ? 'h-[60vh] md:h-[550px] z-[100] !transform !translate-x-[-50%] !translate-y-[-50%] !scale-110 !opacity-100 !filter-none bg-white/90' 
+                                    : 'h-[250px] hover:bg-white/60'
+                                }
+                            `}
+                            style={!isExpanded ? getCardStyle(index) as any : {}}
+                        >
+                            {/* Header */}
+                            <div className="flex justify-between items-start mb-4 shrink-0 relative z-50">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold tracking-[0.2em] text-[#A05C4B] uppercase">
+                                        {note.type} • {note.hostName}
+                                    </span>
+                                    <span className="text-[10px] text-[#4A3B32]/40 font-serif italic">
+                                        {new Date(note.createdAt).toLocaleDateString()}
+                                    </span>
+                                </div>
+                                <div className="flex gap-2">
+                                     {isExpanded && (
+                                        <button 
+                                            onClick={(e) => handleDelete(e, note.id)}
+                                            className="w-10 h-10 rounded-full bg-[#A05C4B]/10 flex items-center justify-center text-[#A05C4B] hover:bg-[#A05C4B] hover:text-white transition-colors relative z-50 hover:scale-110 active:scale-95"
+                                            title="Delete Memory"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                            </svg>
+                                        </button>
+                                     )}
+                                     <div className="w-8 h-8 rounded-full bg-[#A05C4B]/10 flex items-center justify-center text-[#A05C4B]">
+                                         {note.type === 'voice' && <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" /><path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 9.375v1.875a.75.75 0 0 1-1.5 0v-1.875A6.751 6.751 0 0 1 6 12.75v-1.5a.75.75 0 0 1 .75-.75Z" /></svg>}
+                                         {note.type === 'chat' && <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M4.804 21.644A6.707 6.707 0 0 0 6 21.75a6.721 6.721 0 0 0 3.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 0 1-.814 1.686.75.75 0 0 0 .44 1.223ZM8.25 9.75a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Zm0 4.5a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" /></svg>}
+                                         {note.type === 'dream' && <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813a3.75 3.75 0 0 0 2.576-2.576l.813-2.846A.75.75 0 0 1 9 4.5ZM9 15a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0v-1.5h-1.5a.75.75 0 0 1 0-1.5h1.5v-1.5A.75.75 0 0 1 9 15Z" clipRule="evenodd" /></svg>}
+                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Summary Content */}
+                            <div className="flex-1 flex flex-col min-h-0">
+                                <h3 className={`font-serif text-xl text-[#4A3B32] mb-3 leading-snug shrink-0 ${isExpanded ? 'font-bold' : ''}`}>
+                                    "{note.summary}"
+                                </h3>
+                                
+                                {isExpanded && (
+                                    <div 
+                                        className="mt-4 pt-4 border-t border-[#A05C4B]/10 overflow-y-auto pr-2 flex-1 custom-scrollbar"
+                                        onClick={(e) => e.stopPropagation()} 
+                                    >
+                                        <p className="text-[#4A3B32]/80 whitespace-pre-wrap text-sm leading-relaxed pb-4">
+                                            {note.content}
+                                        </p>
+                                    </div>
+                                )}
+                                
+                                {!isExpanded && (
+                                     <div className="mt-auto pt-2">
+                                        <p className="text-xs text-[#4A3B32]/40 line-clamp-2">
+                                            {note.content}
+                                        </p>
+                                     </div>
+                                )}
+                            </div>
+                            
+                            {!isExpanded && (
+                                <div className="mt-4 text-center shrink-0">
+                                    <span className="text-[9px] uppercase tracking-widest text-[#A05C4B] opacity-0 group-hover:opacity-100 transition-opacity">Tap to Remember</span>
+                                </div>
+                            )}
+
+                             {/* Decorative Pin */}
+                             {isActive && !isExpanded && <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-32 h-4 bg-[#D9C7A7]/50 rounded-full blur-xl"></div>}
+                        </div>
+                    );
+                })}
+            </div>
+            
+             {/* Navigation Dots */}
+             <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-30">
+                {notes.map((_, i) => (
+                    <button 
+                        key={i}
+                        onClick={() => setActiveIndex(i)}
+                        className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeIndex ? 'bg-[#A05C4B] w-4' : 'bg-[#A05C4B]/20'}`}
+                    />
+                ))}
+            </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default NotesMode;

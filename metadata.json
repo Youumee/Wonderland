@@ -1,0 +1,7 @@
+{
+  "name": "Wonderland",
+  "description": "A whimsical imagination companion where you explore stories with unique AI hosts.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
