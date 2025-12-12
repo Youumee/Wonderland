@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Message, MessageRole, Host } from '../types';
+import { Message, MessageRole, Host, Note } from '../types';
 
 interface ChatModeProps {
   onSaveNote: (content: string, type: 'chat', hostName: string) => void;
   host: Host;
   initialMessages: Message[];
   onUpdateMessages: (messages: Message[]) => void;
+  notes: Note[];
 }
 
-const ChatMode: React.FC<ChatModeProps> = ({ onSaveNote, host, initialMessages, onUpdateMessages }) => {
+const ChatMode: React.FC<ChatModeProps> = ({ onSaveNote, host, initialMessages, onUpdateMessages, notes }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>(() => {
     if (initialMessages && initialMessages.length > 0) return initialMessages;
@@ -58,6 +59,17 @@ const ChatMode: React.FC<ChatModeProps> = ({ onSaveNote, host, initialMessages, 
         parts: [{ text: m.text }]
       }));
 
+      // Filter and format notes for context injection
+      const relevantNotes = notes
+        .filter(n => n.hostName === host.name)
+        .slice(0, 5) // Last 5 memories to prevent huge context
+        .map(n => `- ${new Date(n.createdAt).toLocaleDateString()}: ${n.summary} (${n.content.substring(0, 50)}...)`)
+        .join('\n');
+
+      const memoryContext = relevantNotes 
+        ? `\nPREVIOUS MEMORIES (Things you should remember about the user):\n${relevantNotes}` 
+        : "";
+
       const chat = ai.chats.create({
         model: 'gemini-2.5-flash',
         history: history.slice(0, -1),
@@ -66,6 +78,8 @@ const ChatMode: React.FC<ChatModeProps> = ({ onSaveNote, host, initialMessages, 
           
           SPECIFIC PERSONALITY:
           ${host.personality}
+
+          ${memoryContext}
           
           CORE RULES (OVERRIDE ALL PREVIOUS FORMATTING RULES):
           1. IGNORE any "Task_Workflow", "Phases", "Markdown structure", or complex output formats defined in the personality above.

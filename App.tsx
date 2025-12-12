@@ -16,6 +16,7 @@ const App: React.FC = () => {
       const saved = localStorage.getItem('wonderland_notes');
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
+      console.warn("Failed to load notes:", e);
       return [];
     }
   });
@@ -27,18 +28,27 @@ const App: React.FC = () => {
       const saved = localStorage.getItem('wonderland_chat_history');
       return saved ? JSON.parse(saved) : {};
     } catch (e) {
+      console.warn("Failed to load chat history:", e);
       return {};
     }
   });
 
   // Save to local storage whenever history changes
   useEffect(() => {
-    localStorage.setItem('wonderland_chat_history', JSON.stringify(chatHistories));
+    try {
+      localStorage.setItem('wonderland_chat_history', JSON.stringify(chatHistories));
+    } catch (e) {
+      console.error("Failed to save chat history (Quota Exceeded?):", e);
+    }
   }, [chatHistories]);
 
   // Save notes to local storage
   useEffect(() => {
-    localStorage.setItem('wonderland_notes', JSON.stringify(notes));
+    try {
+      localStorage.setItem('wonderland_notes', JSON.stringify(notes));
+    } catch (e) {
+      console.error("Failed to save notes (Quota Exceeded?):", e);
+    }
   }, [notes]);
 
   const updateChatHistory = (hostId: string, messages: Message[]) => {
@@ -163,19 +173,23 @@ const App: React.FC = () => {
         <main className="flex-1 relative z-10 overflow-hidden flex flex-col pb-24 md:pb-6 w-full mx-auto">
           {viewMode === 'chat' && currentHost && (
             <ChatMode 
+              key={currentHost.id}
               host={currentHost} 
               onSaveNote={createMemory} 
               initialMessages={chatHistories[currentHost.id] || []}
               onUpdateMessages={(msgs) => updateChatHistory(currentHost.id, msgs)}
+              notes={notes} // Inject memories
             />
           )}
           {viewMode === 'live' && currentHost && (
             <LiveMode
+              key={currentHost.id}
               host={currentHost}
               onSetAnalyser={setAudioAnalyser}
               onSaveNote={createMemory}
               currentHistory={chatHistories[currentHost.id] || []}
               onUpdateMessages={(msgs) => updateChatHistory(currentHost.id, msgs)}
+              notes={notes} // Inject memories
             />
           )}
           {viewMode === 'notes' && <NotesMode notes={notes} onDelete={deleteNote} />}

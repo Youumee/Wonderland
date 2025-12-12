@@ -12,7 +12,8 @@
     "react-dom": "^19.2.1",
     "@google/genai": "^1.31.0",
     "react": "^19.2.1",
-    "three": "0.160.0"
+    "three": "0.160.0",
+    "jspdf": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

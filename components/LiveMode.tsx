@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { createPcmBlob, decode, decodeAudioData } from '../services/audioUtils';
-import { Host, Message, MessageRole } from '../types';
+import { Host, Message, MessageRole, Note } from '../types';
 
 interface LiveModeProps {
   onSetAnalyser: (analyser: AnalyserNode | undefined) => void;
@@ -9,9 +9,10 @@ interface LiveModeProps {
   currentHistory?: Message[];
   onUpdateMessages?: (messages: Message[]) => void;
   onSaveNote: (content: string, type: 'voice', hostName: string) => void;
+  notes: Note[];
 }
 
-const LiveMode: React.FC<LiveModeProps> = ({ onSetAnalyser, host, currentHistory, onUpdateMessages, onSaveNote }) => {
+const LiveMode: React.FC<LiveModeProps> = ({ onSetAnalyser, host, currentHistory, onUpdateMessages, onSaveNote, notes }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiText, setAiText] = useState<string>('');
@@ -109,6 +110,17 @@ const LiveMode: React.FC<LiveModeProps> = ({ onSetAnalyser, host, currentHistory
       processor.connect(inputCtx.destination);
       scriptProcessorRef.current = processor;
 
+      // Prepare Memory Context
+      const relevantNotes = notes
+        .filter(n => n.hostName === host.name)
+        .slice(0, 5)
+        .map(n => `- ${new Date(n.createdAt).toLocaleDateString()}: ${n.summary}`)
+        .join('\n');
+
+      const memoryContext = relevantNotes 
+        ? `\nPREVIOUS MEMORIES (Things you should remember about the user):\n${relevantNotes}` 
+        : "";
+
       // 4. Connect to Gemini Live
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const sessionPromise = ai.live.connect({
@@ -123,6 +135,8 @@ const LiveMode: React.FC<LiveModeProps> = ({ onSetAnalyser, host, currentHistory
           SPECIFIC PERSONALITY:
           ${host.personality}
           
+          ${memoryContext}
+
           CORE RULES (OVERRIDE ALL PREVIOUS RULES):
           1. IGNORE any "Task_Workflow", "Phases", "Markdown structure", or complex output formats defined in the personality above.
           2. INTERACTION STYLE: You are in a REAL-TIME VOICE conversation. Be extremely concise, conversational, and natural. Like a real friend on the phone.
@@ -180,19 +194,6 @@ const LiveMode: React.FC<LiveModeProps> = ({ onSetAnalyser, host, currentHistory
                         
                         const source = audioContextRef.current.createBufferSource();
                         source.buffer = audioBuffer;
-                        
-                        // Connect to analyser for visualization
-                        if (onSetAnalyser && audioContextRef.current) {
-                            // We need to re-find the analyser we created in startSession, 
-                            // but simpler is to pass it through a ref or just connect to destination
-                            // For visualizer to work, we need to connect to the global analyser node if possible
-                            // But here we just connect to destination. The visualizer state is updated via onSetAnalyser
-                            // We should have stored the analyser node in a ref to connect here.
-                            // For now, just connect to destination.
-                            // The visualizer might not react to AI voice if not connected to analyser.
-                            // Let's rely on the one created in startSession if we can attach.
-                            // To keep it simple: just play audio.
-                        }
                         
                         source.connect(audioContextRef.current.destination);
                         source.start(nextStartTimeRef.current);
